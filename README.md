@@ -21,9 +21,9 @@ Entrega2_telematica/
 │   ├── Entrega2_IAP.pkt      # Archivo maestro integrado (solo lo modifica el integrador)
 │   └── borradores/           # Archivos de trabajo de cada integrante (ASx_nombre.pkt)
 ├── configs/
-│   ├── AS1.txt ... AS4.txt   # show running-config de cada router del AS
-│   ├── AS99.txt              # R5, R6 y R7
-│   └── plantilla-borde.txt   # NAT + eBGP + ruta por defecto para los routers de borde
+│   ├── AS1.md ... AS4.md   # show running-config de cada router del AS
+│   ├── AS99.md              # R5, R6 y R7
+│   └── plantilla-borde.md   # NAT + eBGP + ruta por defecto para los routers de borde
 ├── evidencias/
 │   ├── AS1/ ... AS4/         # Capturas de pruebas internas
 │   ├── AS99/
@@ -34,7 +34,7 @@ Entrega2_telematica/
 ## Flujo de trabajo
 
 1. Cada integrante trabaja su AS en `packet-tracer/borradores/` siguiendo el plan de direccionamiento acordado.
-2. Al terminar, guarda el `show running-config` de cada router en `configs/ASx.txt` (un bloque por router, con el nombre del router como encabezado).
+2. Al terminar, guarda el `show running-config` de cada router en `configs/ASx.md` (un bloque por router, con el nombre del router como encabezado).
 3. Las capturas van en `evidencias/ASx/` con nombres descriptivos (por ejemplo `R1_show_ip_route.png`, `PC1_ipconfig.png`).
 4. El integrador aplica los scripts de `configs/` sobre `packet-tracer/Entrega2_IAP.pkt`. Packet Tracer no fusiona archivos, por eso la integración se hace con los comandos y no copiando archivos `.pkt`.
 5. Todos usan la misma versión de Packet Tracer: `[...]`.
