@@ -134,7 +134,7 @@ R2 funciona como router de borde de AS2. Tiene dos conexiones internas y una con
 ```cisco
 Building configuration...
 
-Current configuration : 1222 bytes
+Current configuration : 1262 bytes
 !
 version 15.1
 no service timestamps log datetime msec
@@ -153,18 +153,21 @@ spanning-tree mode pvst
 interface GigabitEthernet0/0
  description LINK_R1
  ip address 192.168.0.2 255.255.255.252
+ ip nat inside
  duplex auto
  speed auto
 !
 interface GigabitEthernet0/1
  description LINK_R4
  ip address 192.168.0.9 255.255.255.252
+ ip nat inside
  duplex auto
  speed auto
 !
 interface GigabitEthernet0/2
  description LINK_AS99_R6
  ip address 201.0.2.2 255.255.255.252
+ ip nat outside
  duplex auto
  speed auto
 !
@@ -172,14 +175,26 @@ interface Vlan1
  no ip address
  shutdown
 !
+router bgp 2
+ bgp log-neighbor-changes
+ no synchronization
+ neighbor 201.0.2.1 remote-as 99
+!
 router rip
  version 2
  network 192.168.0.0
+ default-information originate
  no auto-summary
 !
+ip nat inside source list 1 interface GigabitEthernet0/2 overload
 ip classless
+ip route 0.0.0.0 0.0.0.0 201.0.2.1 
 !
 ip flow-export version 9
+!
+access-list 1 permit 10.0.0.0 0.0.0.255
+access-list 1 permit 172.16.0.0 0.0.0.255
+access-list 1 permit 192.168.0.0 0.0.255.255
 !
 line con 0
 !
@@ -189,6 +204,34 @@ line vty 0 4
  login
 !
 end
+```
+---
+
+### NAT/PAT y ACL
+
+Se configuró NAT overload en R2. Las interfaces internas son G0/0 y G0/1, mientras que G0/2 es la interfaz externa hacia R6.
+
+```cisco
+access-list 1 permit 10.0.0.0 0.0.0.255
+access-list 1 permit 172.16.0.0 0.0.0.255
+access-list 1 permit 192.168.0.0 0.0.255.255
+
+ip nat inside source list 1 interface GigabitEthernet0/2 overload
+```
+La ACL incluye las dos redes de clientes y el espacio `192.168.0.0/16`.
+
+### Ruta por defecto y propagación por RIP
+
+R2 utiliza a R6 como siguiente salto para destinos que no conoce y anuncia la ruta por defecto al resto de AS2 mediante RIP v2.
+
+```cisco
+ip route 0.0.0.0 0.0.0.0 201.0.2.1
+
+router rip
+ version 2
+ network 192.168.0.0
+ default-information originate
+ no auto-summary
 ```
 ---
 
