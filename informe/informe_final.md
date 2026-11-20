@@ -2,6 +2,15 @@
 
 Entrega 2 · Internet, Arquitectura y Protocolos (Telemática) · EAFIT · 2026-2
 
+## Integrantes
+
+| Integrante | AS | IGP | Responsabilidad común |
+|---|---|---|---|
+| Emmanuel Castaño Sepúlveda | AS1 | OSPF | Interconexión entre AS (NAT y eBGP) e integración del archivo maestro |
+| Viviana Arango Tabares | AS2 | RIPv2 | Informe y entrega |
+| Jerónimo Contreras Sierra | AS3 | OSPF | AS99 (R5, R6, R7) |
+| Simón Mazo Gómez | AS4 | RIPv2 | Servicios DNS/WEB y pruebas |
+
 ## Topología y direccionamiento
 
 La implementación conecta cuatro sistemas autónomos de clientes (AS1–AS4) con el AS99, que ofrece los servicios DNS y WEB. Cada AS cliente tiene cuatro routers, un switch que conecta los equipos de la VLAN 10, tres PCs y un servidor DHCP. Los PCs de la segunda red de usuarios se conectan directamente a una interfaz de capa 3 de R3. El AS99 está compuesto por R5, R6 y R7; R6 conecta los cuatro AS clientes y R5 y R7 dan acceso a los servidores DNS y WEB.
@@ -72,7 +81,7 @@ Las redes internas de los AS de clientes se repiten según el direccionamiento d
 | R3–R4 | `192.168.0.12/30` | R3 Fa1/0: `.13`; R4 G0/1: `.14` |
 | AS4–R6 | `201.0.4.0/30` | R6 Fa3/0: `201.0.4.1`; R2 G0/2: `201.0.4.2` (IP de PAT) |
 
-### AS99
+### Evidencias de AS99
 
 | Segmento | Red | Interfaces y direcciones del maestro |
 |---|---|---|
@@ -90,9 +99,11 @@ En los cuatro AS cliente, R3 conecta la segunda red de usuarios en Fa4/0 (`172.1
 
 #### Segmentación de la VLAN 10
 
+![AS1: salida show vlan brief de S1](../evidencias/AS1/S1_show_vlan.png)
+
 ![AS2: salida show vlan brief de S1](../evidencias/AS2/S1_show_vlan.png)
 
-La salida muestra la VLAN 10 activa y los puertos de acceso asignados a esa red.
+En los cuatro AS, la VLAN 10 aparece activa con los puertos de acceso asignados a esa red.
 
 ![AS3: salida show vlan brief de S1](../evidencias/AS3/S1_show_vlan.png)
 
@@ -108,6 +119,28 @@ Cada AS cliente enruta internamente entre la VLAN 10, la LAN de usuarios conecta
 **DHCP relay.** Cada AS cliente tiene un servidor DHCP en `192.168.1.10`, separado de las redes de usuarios. Como las solicitudes iniciales DHCP son broadcasts y los routers no las reenvían entre subredes, R1 G0/0 y R3 Fa4/0 usan `ip helper-address 192.168.1.10` para reenviarlas como unicast. El servidor selecciona el pool según la red de origen indicada por el relay.
 
 Las siguientes capturas muestran tablas de rutas, conectividad interna y asignaciones DHCP en cada AS. Cada imagen documenta únicamente los equipos y destinos visibles en ella.
+
+### AS99
+
+![AS99: topología de R5, R6 y R7 con los servidores DNS y WEB](../evidencias/AS99/AS99_topologia.png)
+
+La captura presenta los tres routers del proveedor y los servidores conectados a R5 y R7.
+
+![AS99: vecinos OSPF de R6](../evidencias/AS99/R6_ospf_neighbor.png)
+
+R6 muestra como vecinos OSPF a R5 (`5.5.5.5`) y R7 (`7.7.7.7`) en estado FULL.
+
+![AS99: tabla BGP de R6](../evidencias/AS99/R6_show_ip_bgp.png)
+
+La salida de `show ip bgp` muestra el agregado `200.99.0.0/16` como ruta válida y preferida en R6.
+
+![AS99: rutas y pings de R5 hacia redes y borde de AS3](../evidencias/AS99/R5_show_ip_route_y_ping_R4AS3.png)
+
+La tabla de R5 incluye rutas OSPF hacia `200.99.0.4/30` y `200.99.2.0/24`. En la captura, el primer ping a `201.0.3.2` no recibe respuestas; el segundo recibe cinco.
+
+![AS99: ping desde DNS al servidor WEB](../evidencias/AS99/DNS_ping_WEB.png)
+
+Desde el servidor DNS, el ping a `200.99.2.10` recibe tres respuestas de cuatro, con una pérdida.
 
 ### AS1
 
@@ -219,6 +252,8 @@ Desde AS1, el ping a la IP pública del borde AS2 (`201.0.2.2`) recibe cuatro re
 
 **eBGP e iBGP en Packet Tracer.** Los AS de clientes y el AS99 son sistemas autónomos distintos, por eso los bordes de cliente establecen eBGP con R6. R6 anuncia `200.99.0.0/16` y los bordes no anuncian las redes internas. Debido a las limitaciones de soporte de iBGP en Packet Tracer, R6 es el único router BGP de AS99; R5 y R7 aprenden por OSPF las redes de servicios y los enlaces públicos necesarios para responder a los clientes.
 
+**Corrección en la integración.** En el borrador de AS2, R2 anunciaba por BGP sus redes internas (`10.0.0.0/24`, `172.16.0.0/24` y los segmentos `192.168.x.x`). Al llegar a R6 y propagarse hacia los demás bordes, esos prefijos entraban con distancia administrativa 20 (eBGP), menor que la de OSPF (110) y RIP (120). Por eso los otros AS preferían la ruta hacia AS2 para sus propias redes internas, y AS4 perdía el acceso al DNS. En el archivo maestro se eliminaron esas sentencias `network` de R2. Ahora cada borde solo establece la sesión eBGP y recibe `200.99.0.0/16`, y las redes privadas quedan ocultas detrás de NAT. Después del cambio, PC0 de AS1 y de AS4 vuelven a resolver `www.iap.com` y a cargar la página.
+
 **Alcance entre clientes.** Los hosts internos de distintos clientes no tienen conectividad directa. Como comparten direccionamiento, un destino de la red local, como `10.0.0.11`, se resuelve en el propio AS de origen. Además, los bordes no anuncian redes internas por BGP y PAT no publica automáticamente una conexión entrante hacia un host interno. La prueba ilustrada muestra que sí es alcanzable la IP pública del borde AS2 (`201.0.2.2`) desde AS1. Publicar un servicio interno requeriría una traducción estática o un reenvío de puertos.
 
 ## Acceso a servicios
@@ -280,3 +315,13 @@ Las capturas de las secciones anteriores documentan conectividad interna y acces
 | NAT/PAT | Las tablas de los cuatro bordes muestran traducciones de origen de clientes hacia DNS/WEB usando la dirección del enlace público correspondiente. |
 | DNS y WEB | Desde un PC0 de cada AS, las capturas muestran la resolución de `www.iap.com`, respuestas al ping al servidor WEB y la carga de la página por HTTP. |
 | Conectividad entre clientes | Desde AS1, el ping a la dirección pública del borde AS2 responde; el traceroute al destino interno coincidente termina en la red local de origen. |
+
+## Conclusiones
+
+- La combinación de un IGP dentro de cada AS (OSPF o RIPv2) y eBGP en los bordes separa el enrutamiento interno del externo. Cada AS administra sus redes sin depender de los demás.
+- NAT con sobrecarga (PAT) permite que cuatro AS con el mismo direccionamiento privado accedan a los servicios de AS99. Cada uno sale con una única dirección pública, `201.0.k.2`.
+- Anunciar un solo agregado, `200.99.0.0/16`, con una ruta a Null0 en R6 mantiene pequeñas las tablas de los bordes y evita publicar redes que no existen.
+- Anunciar por BGP redes privadas repetidas rompe el enrutamiento de los demás AS, porque la distancia administrativa de eBGP (20) es menor que la de los IGP. Los bordes deben anunciar solo lo que es único y público.
+- El relay DHCP (`ip helper-address`) permite usar un servidor DHCP central por AS para atender redes ubicadas en otros segmentos.
+- Packet Tracer limita iBGP. Por eso R6 es el único router BGP de AS99, y R5 y R7 conocen las rutas por OSPF. En una red real se usaría iBGP entre los routers del proveedor.
+- Los hosts de distintos clientes no se alcanzan directamente por diseño. Publicar un servicio interno requeriría NAT estático o reenvío de puertos.
